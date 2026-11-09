@@ -28,6 +28,10 @@ ceiling, and Chromium has room to print PDFs.
 
 ---
 
+Step-by-step for the first two parts, with every field to pick and the error
+messages you might see: **[SETUP-NEON-GEMINI.md](SETUP-NEON-GEMINI.md)**. The
+short version is below.
+
 ## Part 1 — Neon (the database), 5 minutes
 
 1. https://console.neon.tech → sign up with GitHub or Google (no card).
@@ -48,8 +52,13 @@ Dossier creates its own tables on first start (43 migrations, then the themes).
 ## Part 2 — Gemini (the AI), 2 minutes
 
 1. https://aistudio.google.com/apikey → **Create API key** (no card, no billing
-   account needed).
+   account needed). Choose "Create a new project" when asked.
 2. Keep it: it's `DOSSIER_AI_KEY` below.
+
+New keys start `AQ.Ab…` (Google's current auth-key format); older ones start
+`AIzaSy…`. Both work with the endpoint below when the key is bound to the
+Gemini API; if **Test connection** rejects an `AQ.` key, the alternatives and
+the exact errors are in [SETUP-NEON-GEMINI.md](SETUP-NEON-GEMINI.md) Part B4.
 
 Dossier reaches Gemini through the OpenAI-compatible endpoint Dossier already
 speaks, at

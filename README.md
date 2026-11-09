@@ -59,7 +59,9 @@ repository ([`render.yaml`](render.yaml)), [Neon](https://neon.tech)'s free
 Postgres, and Google Gemini's free tier as the AI provider. It also covers what
 that plan can't do (it sleeps, 512 MB for Chromium, no disk), and
 [`deploy/oracle/`](deploy/oracle/README.md) for Oracle Cloud's Always Free
-server (2 ARM cores, 12 GB, always on) when those limits matter.
+server (2 ARM cores, 12 GB, always on) when those limits matter, and
+[`SETUP-NEON-GEMINI.md`](SETUP-NEON-GEMINI.md) for the database and AI accounts
+themselves, screen by screen.
 
 ## Demo
 
