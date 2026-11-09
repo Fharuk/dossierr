@@ -44,6 +44,14 @@ services:
       # Postgres, on Neon: Dossier's PostgreSQL schema, not the SQLite one.
       - key: DATABASE_URL
         sync: false
+      # Run migrations over the direct host rather than the -pooler one. Only
+      # needed if the first deploy stops at "applying the database migrations
+      # failed" with P1002: some poolers can't hold the session the advisory
+      # lock prisma migrate waits on. Neon's Connect dialog's unpooled string.
+      # Left unset, docker/start.sh uses DATABASE_URL, which is right for
+      # Neon's pooler.
+      - key: DIRECT_URL
+        sync: false
       - key: DOSSIER_PASSWORD
         sync: false
       - key: DOSSIER_SECRET

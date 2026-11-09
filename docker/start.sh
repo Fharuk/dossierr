@@ -26,7 +26,12 @@ case "${DATABASE_URL:-}" in
 esac
 
 cd /app/tools
-if ! node node_modules/prisma/build/index.js migrate deploy; then
+# Migrations go over DIRECT_URL when a host sets one (a pooler in front of
+# Postgres, such as Neon's -pooler host, may not keep the session their
+# advisory lock needs). Only this command sees it: the app keeps using
+# DATABASE_URL, which is where pooling belongs.
+migrate_url=${DIRECT_URL:-${DATABASE_URL:-}}
+if ! DATABASE_URL="$migrate_url" node node_modules/prisma/build/index.js migrate deploy; then
   echo "Dossier didn't start: applying the database migrations failed (see the error above). See Troubleshooting in the wiki: https://github.com/AienTech/dossier/wiki/Troubleshooting" >&2
   exit 1
 fi

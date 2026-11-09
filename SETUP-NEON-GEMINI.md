@@ -93,6 +93,15 @@ Dossier creates all 43 of its tables inside it on first start.
 
 That whole line is your `DATABASE_URL`.
 
+**Also copy the unpooled one.** Same modal, same selections, but turn
+**Connection pooling off** (or click the **Direct**/unpooled toggle): the host
+loses its `-pooler` and the rest is identical. Paste it with the pooled string,
+labelled `DIRECT_URL`. Dossier itself uses only the pooled one; the direct one
+is there so the container's startup migrations can use it if your pooler won't
+hold the advisory lock they take — a real, reported Neon+Prisma failure
+(`P1002 … Timed out trying to acquire a postgres advisory lock`). If your first
+deploy starts cleanly without it, leave it blank or delete it.
+
 ### A5. Optional: prove it works before Render
 
 Only if you have `psql` installed (macOS: `brew install libpq`; Windows:
@@ -238,7 +247,8 @@ you rotate it, you'll sign in again and re-enter any keys saved in Settings.
 
 | Variable | Value |
 | --- | --- |
-| `DATABASE_URL` | Part A4 |
+| `DATABASE_URL` | Part A4, the `-pooler` string |
+| `DIRECT_URL` | Part A4, the same string without `-pooler` (only needed if a deploy stops at the migrations — see A4) |
 | `DOSSIER_PASSWORD` | Part C1 (`argon2id:…`) |
 | `DOSSIER_SECRET` | Part C2 |
 | `DOSSIER_AI_KEY` | Part B2 |
@@ -253,7 +263,7 @@ again either, so keep a copy in a password manager.
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| Render deploy fails: `P1002 … advisory lock` | `DATABASE_URL` pointing somewhere Prisma's migrate can't lock | Not applicable to Dossier's startup (it applies plain SQL), but if you see it, you've pointed at a **Render** Postgres rather than Neon, or used the `direct` host with a paused compute. Use the `-pooler` host. |
+| Render deploy stops: `applying the database migrations failed`, `P1002 … advisory lock` | The startup migrations couldn't hold their session through this pooler | Set `DIRECT_URL` to the unpooled string (Part A4) and redeploy: `docker/start.sh` migrates over it and keeps `DATABASE_URL` for the app. |
 | Render deploy fails: `Can't reach database server` | Wrong host/region, or the project was deleted | Re-copy from **Connect**; check the host has `-pooler` and the region matches the project. |
 | `password authentication failed` | Password changed, or a stray space/newline from copy-paste | Re-copy the whole string, from `postgresql://` to the end. |
 | Dossier starts, but every AI action says the provider is not configured | `DOSSIER_AI_KEY` empty and nothing saved in Settings | Set the variable, or fill Settings → AI provider. |
