@@ -25,10 +25,12 @@ into Render in Part 3 of [DEPLOY.md](DEPLOY.md).
 3. If Neon asks for a name and company, any answer works; there's no card step.
    You land on **Projects**, empty.
 
-Region note: free Neon has no EU-only restriction, but check the region list in
-the next step — pick one in Europe (nearest to Lagos with reasonable latency).
-Avoid US East if you can; Render's free region in `render.yaml` is Frankfurt,
-and keeping the database near the app saves a round trip on every query.
+Region note: the region can't be changed later, and it decides how long every
+query takes — a page makes several. Whatever you pick, set Render's `region` in
+`render.yaml` to the Render region in the same area (`eu-central-1` →
+`frankfurt`, `us-west-2` → `oregon`, `us-east-2` → `ohio`, `us-east-1` →
+`virginia`). An app in Frankfurt querying a database in us-west-2 adds about
+150 ms per query.
 
 ### A2. Create the project
 
@@ -102,7 +104,22 @@ hold the advisory lock they take — a real, reported Neon+Prisma failure
 (`P1002 … Timed out trying to acquire a postgres advisory lock`). If your first
 deploy starts cleanly without it, leave it blank or delete it.
 
-### A5. Optional: prove it works before Render
+### A5. Check the string before Render, without a database client
+
+This repository has a checker that reads a connection string, names what's
+wrong with it, and never prints the password:
+
+```bash
+node scripts/local/check-db-url.mjs 'postgresql://…'
+node scripts/local/check-db-url.mjs --connect "$DATABASE_URL"   # also opens one connection
+```
+
+It catches the copy-paste damage — a `&amp;` where `&` belongs, a markdown link
+wrapped around the address, stray spaces, a missing `sslmode`, a `-pooler` host
+used where a direct one belongs — and with `--connect` says whether the
+password is currently valid.
+
+### A6. Optional: prove it with psql
 
 Only if you have `psql` installed (macOS: `brew install libpq`; Windows:
 `winget install PostgreSQL.psql`; Linux: `sudo apt install postgresql-client`):

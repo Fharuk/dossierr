@@ -37,7 +37,13 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
-    region: frankfurt # nearest to Lagos of Render's free regions; can't be changed later
+    # The region can't be changed after the service exists, so match it to the
+    # database: a page makes several queries, and Frankfurt→us-west-2 adds
+    # ~150 ms to each. Change this to the Render region nearest your Neon
+    # project's region (render.yaml said frankfurt before the project was
+    # known; oregon pairs with Neon's us-west-2, ohio with us-east-2,
+    # frankfurt with eu-central-1, virginia with us-east-1).
+    region: oregon
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
