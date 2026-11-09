@@ -59,6 +59,15 @@ export const SERVERS: readonly Server[] = [
     }),
   },
   {
+    // Gemini's OpenAI-compatible endpoint, which its docs give as
+    // …/v1beta/openai. People also enter the …/v1beta they see elsewhere
+    // (its native API), or just the host: all of them mean the same API.
+    name: "Google Gemini",
+    domain: "generativelanguage.googleapis.com",
+    // With only the host, the path is "" (a URL's "/" without its slash).
+    path: (path) => (path === "" || /^\/(v1beta|v1)?$/.test(path) ? "/v1beta/openai" : path),
+  },
+  {
     // Ollama's cloud (https://ollama.com/v1) accepts `response_format` but
     // doesn't hold answers to the schema (public issue 40, #276): the model
     // never saw it, and answers it had to guess the shape of failed.

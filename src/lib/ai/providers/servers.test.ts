@@ -12,6 +12,9 @@ describe("apiAddress", () => {
       ["https://opencode.ai/inference/go/openai/v1", "https://opencode.ai/inference/go/v1"],
       ["https://opencode.ai/inference/go/v1", "https://opencode.ai/inference/go/v1"],
       ["https://opencode.ai/zen/v1", "https://opencode.ai/zen/v1"],
+      ["https://generativelanguage.googleapis.com", "https://generativelanguage.googleapis.com/v1beta/openai"],
+      ["https://generativelanguage.googleapis.com/v1beta", "https://generativelanguage.googleapis.com/v1beta/openai"],
+      ["https://generativelanguage.googleapis.com/v1beta/openai/", "https://generativelanguage.googleapis.com/v1beta/openai"],
       ["https://api.deepseek.com", "https://api.deepseek.com"],
       ["http://llama:8080/v1/", "http://llama:8080/v1/"],
     ];

@@ -51,6 +51,16 @@ migration asks for (a copy with a tiny shim is in `scripts/local`). Beyond that:
   it on a server of your own.
 - The AI provider is unset until you choose one in **Settings → AI provider**.
 
+## Deploy it for $0
+
+[DEPLOY.md](DEPLOY.md) walks through a deployment that costs nothing and asks
+for no payment details: Render's free web service running the image from this
+repository ([`render.yaml`](render.yaml)), [Neon](https://neon.tech)'s free
+Postgres, and Google Gemini's free tier as the AI provider. It also covers what
+that plan can't do (it sleeps, 512 MB for Chromium, no disk), and
+[`deploy/oracle/`](deploy/oracle/README.md) for Oracle Cloud's Always Free
+server (2 ARM cores, 12 GB, always on) when those limits matter.
+
 ## Demo
 
 ![Dossier in use: the dashboard, dragging a card on the board, a new application from a pasted posting, refining the tailored resume in the chat, the cover letter, and switching resume themes](.github/images/demo.gif)

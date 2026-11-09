@@ -15,6 +15,12 @@ case "${DATABASE_URL:-}" in
     done
     if [ "$dir" = / ]; then
       echo "WARNING: the SQLite database, $db, isn't on a volume, so it's deleted with this container, at the next upgrade at the latest. Mount a volume on its folder, e.g. docker run -v dossier-data:$(dirname "$db") ..." >&2
+    elif [ "$db" = /data/dossier.db ] && mountpoint -q /data; then
+      # Something is mounted on /data, so it lasts until the container is
+      # replaced rather than with every upgrade: the image's own volume, or an
+      # emptyDir where the host has no persistent disks (Render's free plan).
+      # Nothing to warn about.
+      :
     fi
     ;;
 esac
