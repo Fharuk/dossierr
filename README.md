@@ -61,7 +61,8 @@ that plan can't do (it sleeps, 512 MB for Chromium, no disk), and
 [`deploy/oracle/`](deploy/oracle/README.md) for Oracle Cloud's Always Free
 server (2 ARM cores, 12 GB, always on) when those limits matter, and
 [`SETUP-NEON-GEMINI.md`](SETUP-NEON-GEMINI.md) for the database and AI accounts
-themselves, screen by screen.
+themselves, screen by screen. [`START-HERE.md`](START-HERE.md) is the same
+journey as a tick-list with no assumed knowledge.
 
 ## Demo
 
