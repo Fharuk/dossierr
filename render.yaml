@@ -43,7 +43,7 @@ services:
     # project's region (render.yaml said frankfurt before the project was
     # known; oregon pairs with Neon's us-west-2, ohio with us-east-2,
     # frankfurt with eu-central-1, virginia with us-east-1).
-    region: oregon
+    region: frankfurt
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
