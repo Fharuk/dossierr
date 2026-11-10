@@ -1,0 +1,24 @@
+# Caddy's settings for Dossier (see README.md in this folder).
+#
+# The address comes from DOSSIER_HOST in .env; Caddy asks Let's Encrypt for a
+# certificate for it the first time, and renews it by itself. Nothing else to
+# configure: HTTPS, HTTP/2, compression, and the proxy to the app.
+{$DOSSIER_HOST} {
+	encode zstd gzip
+
+	# Dossier prints its PDFs from its own print pages, inside the container,
+	# so nothing here needs to be exposed beyond the app.
+	reverse_proxy app:3000 {
+		# Server Actions and the AI job stream can take a while; well under
+		# the AI provider timeout Dossier itself uses.
+		transport http {
+			response_header_timeout 300s
+		}
+	}
+
+	# Logs go to Docker's logs: `docker compose logs caddy`.
+	log {
+		output stdout
+		format console
+	}
+}

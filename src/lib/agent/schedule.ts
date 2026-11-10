@@ -1,0 +1,109 @@
+import "server-only";
+
+import { AgentCandidateStatus } from "@/generated/prisma/enums";
+import { addDays, dayOf } from "@/lib/calendar-view";
+import { zonedTime } from "@/lib/google/slots";
+import { findUnfinishedJobs, startJob } from "@/lib/jobs/runner";
+import { logServerError } from "@/lib/log";
+import { prisma } from "@/lib/prisma";
+import type { AgentRun } from "@/lib/settings";
+import { loadSettings } from "@/lib/settings-data";
+import { lastKnownTimeZone } from "@/lib/time-zone";
+
+import { AGENT_JOB_KEY, agentScanJob } from "./jobs";
+import { nextSourceBudgetAt, runLimitProblem } from "./runs";
+import { listAgentSearches } from "./searches";
+
+// The job agent's daily run (E16-4): a timer in this process, like the
+// nightly backups and the inbox check, so it's only right with one instance.
+// Every 15 minutes it starts the day's run once the chosen hour has come, in
+// the user's time zone, not the server's (usually UTC in Docker).
+
+const EVERY_MS = 15 * 60 * 1000;
+
+/** The moment the run is due on `day`, at `hour` in `timeZone`. */
+const dueOn = (day: string, hour: number, timeZone: string) => {
+  const [year, month, date] = day.split("-").map(Number);
+  return zonedTime(year, month, date, hour, 0, timeZone);
+};
+
+/** Whether a run, of either kind, happened on `now`'s day in `timeZone`. */
+const ranToday = (runs: readonly AgentRun[], now: Date, timeZone: string) =>
+  runs.some((run) => dayOf(new Date(run.at), timeZone) === dayOf(now, timeZone));
+
+/** Whether the day's run should start now: the hour has come, and nothing ran today. */
+export function scheduledRunDue(now: Date, hour: number, timeZone: string, runs: readonly AgentRun[]): boolean {
+  return now >= dueOn(dayOf(now, timeZone), hour, timeZone) && !ranToday(runs, now, timeZone);
+}
+
+/** Today's run (or tomorrow's after any run today), deferred until the whole
+ * enabled-search batch fits the rolling budget. The daily hour/timezone is
+ * unchanged; a defer is not a second schedule and never runs a subset.
+ */
+export function nextAgentRun(now: Date, hour: number, timeZone: string, runs: readonly AgentRun[], requests = 1): Date {
+  const today = dayOf(now, timeZone);
+  if (!ranToday(runs, now, timeZone)) {
+    const due = dueOn(today, hour, timeZone);
+    // Overdue: the next check starts it.
+    const eligible = nextSourceBudgetAt(runs, now, requests);
+    // Budget expiry has its own wake-up, not another full 15-minute tick.
+    if (eligible > now) return new Date(Math.max(due.getTime(), eligible.getTime()));
+    return due > now ? due : new Date(Math.ceil(now.getTime() / EVERY_MS) * EVERY_MS);
+  }
+  const due = dueOn(addDays(today, 1), hour, timeZone);
+  const eligible = nextSourceBudgetAt(runs, due, requests);
+  return new Date(Math.max(due.getTime(), eligible.getTime()));
+}
+
+/** Starts the day's run when it's due and none is queued or running. */
+export async function startDueRun(now = new Date()): Promise<string | null> {
+  const settings = await loadSettings();
+  if (!settings.agentEnabled) return null;
+  if (!scheduledRunDue(now, settings.agentHour, await lastKnownTimeZone(), settings.agentRuns)) return null;
+  const requests = (await listAgentSearches()).filter((search) => search.enabled).length;
+  if (!requests || runLimitProblem(settings.agentRuns, now, { manual: false, requests })) return null;
+  if ((await findUnfinishedJobs(AGENT_JOB_KEY)).length > 0) return null;
+  return startJob(agentScanJob, { manual: false }, { key: AGENT_JOB_KEY });
+}
+
+/** After a restart, a candidate left DRAFTING has no job to finish it. */
+export async function resetInterruptedDrafts(): Promise<number> {
+  const { count } = await prisma.agentCandidate.updateMany({
+    where: { status: AgentCandidateStatus.DRAFTING },
+    data: { status: AgentCandidateStatus.SCORED, error: "Drafting was interrupted. Try again." },
+  });
+  return count;
+}
+
+const globalForAgent = globalThis as unknown as {
+  agentTimer?: ReturnType<typeof setInterval>;
+  agentBudgetTimer?: ReturnType<typeof setTimeout>;
+};
+
+/** Wake at quota expiry too: a run starting seconds after yesterday's tick
+ * must not push every subsequent daily run another 15 minutes later.
+ */
+export async function checkAgentSchedule(): Promise<void> {
+  await startDueRun();
+  if (globalForAgent.agentBudgetTimer) clearTimeout(globalForAgent.agentBudgetTimer);
+  const now = new Date();
+  const settings = await loadSettings();
+  if (!settings.agentEnabled || !scheduledRunDue(now, settings.agentHour, await lastKnownTimeZone(), settings.agentRuns)) return;
+  const requests = (await listAgentSearches()).filter((search) => search.enabled).length;
+  const wait = nextSourceBudgetAt(settings.agentRuns, now, requests).getTime() - now.getTime();
+  if (wait > 0 && wait <= EVERY_MS) {
+    globalForAgent.agentBudgetTimer = setTimeout(() => void checkAgentSchedule().catch((error: unknown) => logServerError("job agent schedule", error)), wait);
+    globalForAgent.agentBudgetTimer.unref?.();
+  }
+}
+
+/** Starts the timer, once per process (dev reloads keep the one they have). */
+export function startAgentSchedule(): void {
+  if (globalForAgent.agentTimer) return;
+  void resetInterruptedDrafts().catch((error: unknown) => logServerError("job agent", error));
+  const check = () => void checkAgentSchedule().catch((error: unknown) => logServerError("job agent schedule", error));
+  globalForAgent.agentTimer = setInterval(check, EVERY_MS);
+  // Don't keep the process alive just for this.
+  globalForAgent.agentTimer.unref?.();
+  check();
+}

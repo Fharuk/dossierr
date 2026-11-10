@@ -1,0 +1,87 @@
+# Dossier on Render, free plan — https://render.com/docs/blueprint-spec
+#
+# Render → New → Blueprint → this repository → Apply. It builds the image from
+# Dockerfile (the same one the project publishes) and runs it with
+# docker/start.sh, which applies the migrations and loads the built-in themes
+# before serving.
+#
+# Three values you fill in the dashboard once (they're secrets: `sync: false`):
+#
+#   DATABASE_URL      a Postgres connection string with ?sslmode=require.
+#                     Dossier's own database is not on this plan: Render's free
+#                     Postgres is deleted 30 days after creation, and a free
+#                     web service can't have a disk. Neon's free plan works
+#                     (0.5 GB, no card, no inactivity pause):
+#                     https://console.neon.tech → your project → Connect.
+#   DOSSIER_PASSWORD  a hash of the password you sign in with, printed by
+#                     `hash-password` in the container, or by
+#                     `yarn hash-password` on a machine with Node 24.
+#   DOSSIER_SECRET    `openssl rand -base64 32` (at least 32 characters).
+#
+# What the free plan can't do, and what Dossier does about it:
+#   - It sleeps after 15 minutes without traffic, and the next visit waits
+#     about a minute. Schedules that come due while it sleeps (the nightly
+#     backup at 03:00, the job agent's daily run) run when it next wakes.
+#   - It has no disk: /data is empty when a new container starts, so the
+#     export zips, backups and the PDF browser's temp files go with it. The
+#     database itself is Neon's, so nothing you entered is lost.
+#   - 512 MB of RAM. Chromium for PDFs is the peak; the project measured about
+#     520 MB for a print with a browser already open, so printing may be the
+#     first thing to run out of room. Resume previews, the chat and everything
+#     else don't involve Chromium.
+
+services:
+  - type: web
+    name: dossier
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    # The region can't be changed after the service exists, so match it to the
+    # database: a page makes several queries, and Frankfurt→us-west-2 adds
+    # ~150 ms to each. Change this to the Render region nearest your Neon
+    # project's region (render.yaml said frankfurt before the project was
+    # known; oregon pairs with Neon's us-west-2, ohio with us-east-2,
+    # frankfurt with eu-central-1, virginia with us-east-1).
+    region: oregon
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Postgres, on Neon: Dossier's PostgreSQL schema, not the SQLite one.
+      - key: DATABASE_URL
+        sync: false
+      # Run migrations over the direct host rather than the -pooler one. Only
+      # needed if the first deploy stops at "applying the database migrations
+      # failed" with P1002: some poolers can't hold the session the advisory
+      # lock prisma migrate waits on. Neon's Connect dialog's unpooled string.
+      # Left unset, docker/start.sh uses DATABASE_URL, which is right for
+      # Neon's pooler.
+      - key: DIRECT_URL
+        sync: false
+      - key: DOSSIER_PASSWORD
+        sync: false
+      - key: DOSSIER_SECRET
+        sync: false
+      # Africa/Lagos, so "today" on the dashboard, the funnel's windows and the
+      # nightly backup's 03:00 are yours.
+      - key: TZ
+        value: Africa/Lagos
+      # The usage ping: answer it off rather than after sign-in.
+      - key: DOSSIER_TELEMETRY
+        value: "off"
+      # Defaults for Settings → AI provider: Google's Gemini, through its
+      # OpenAI-compatible endpoint (the key comes from AI Studio, no card).
+      # The free tier allows about 10 requests a minute and 1,500 a day, which
+      # a resume and cover letter fit in; tweak any of these in Settings.
+      - key: DOSSIER_AI_PROVIDER
+        value: openai
+      - key: DOSSIER_AI_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai
+      - key: DOSSIER_AI_MODEL
+        value: gemini-3.8-flash
+      - key: DOSSIER_AI_KEY
+        sync: false
+      # Job sources that need no key: FreeHire reads company career pages.
+      # JSearch (LinkedIn, Indeed) and Adzuna want a key of their own.
+      - key: DOSSIER_JOBS_SOURCE
+        value: freehire

@@ -1,0 +1,62 @@
+# Dossier on Oracle Cloud's Always Free ARM server, with Caddy for HTTPS.
+#
+# What this gives you that Render's free plan can't: no sleeping, 12 GB of RAM
+# (Chromium prints PDFs comfortably), a real disk for backups and exports, and
+# the nightly schedules running at 03:00 Africa/Lagos whether or not anyone is
+# using it.
+#
+# Run it from the folder this file is in, on the server:
+#
+#   cp .env.example .env    # then fill it in; see the comments there
+#   docker compose up -d
+#
+# Port 3000 is published on 127.0.0.1 only: Caddy is the only thing on the
+# internet, and it gets the certificate by itself.
+
+services:
+  app:
+    # The project's published image, built for amd64 and arm64, so it runs on
+    # the Ampere A1 (ARM) server as it is. Pin a version if you like:
+    # ghcr.io/aientech/dossier:1.13.0
+    image: ${DOSSIER_IMAGE:-ghcr.io/aientech/dossier:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: ${TZ:-Africa/Lagos}
+      DOSSIER_DATA_DIR: /data
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # Backups, export zips and temporary downloads. Not the database: that's
+      # Neon's (see .env.example).
+      - data:/data
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Your address for Dossier, e.g. dossier.example.com. A free DuckDNS or
+      # nip.io name works too; Caddy asks Let's Encrypt for a certificate for
+      # whatever this is, so it has to point at this server already.
+      DOSSIER_HOST: ${DOSSIER_HOST:?Set DOSSIER_HOST in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:
